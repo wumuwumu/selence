@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#3F51B5</color>
+    <color name="colorPrimaryDark">#303F9F</color>
+    <color name="colorAccent">#FF4081</color>
+    <color name="white">#ffffff</color>
+    <color name="activity_split">#E3E3E3</color>
+
+
+    <color name="activity_top_main_color">#986DDE</color>
+    <color name="activity_menu_not_selected_color">#6C6273</color>
+    <color name="setting_text_color">#8E8e8e</color>
+    <color name="setting_text_color2">#6B6A70</color>
+    <color name="bg_color">#FEDEDF</color>
+    <color name="setting_bg_color">#EEEEEE</color>
+    <color name="dialog_btn_bg_color">#7a77fc</color>
+    device
+    <color name="device_bg_color1">#bc97de</color>
+    <color name="device_bg_color2">#ea8abb</color>
+    <color name="device_bg_color3">#6ddbce</color>
+    <color name="calendar_bg_color">#7978ed</color>
+
+
+
+
+
+
+</resources>

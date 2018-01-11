@@ -1,0 +1,36 @@
+<resources>
+
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <!-- Customize your theme here. -->
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+    </style>
+
+    <style name="loading_dialog" parent="@android:style/Theme.Dialog">
+        <!-- 是否浮现在activity之上 -->
+        <item name="android:windowIsFloating">true</item>
+        <!-- 半透明 -->
+        <item name="android:windowIsTranslucent">true</item>
+        <!-- 无标题 -->
+        <item name="android:windowNoTitle">true</item>
+        <!-- 背景透明 -->
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <!-- 屏幕背景不变暗 -->
+        <item name="android:backgroundDimEnabled">true</item>
+    </style>
+
+    <style name="SMSDialog" parent="@android:Theme.DeviceDefault.Light.Dialog">
+        <!-- 这里设置背景为透明，为了隐藏边框 -->
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <!-- 这里是修改顶部标题背景颜色，具体颜色自己定，可以是图片 -->
+        <item name="android:topDark">@color/white</item>
+        <!-- 这里是修改内容区域背景颜色 -->
+        <item name="android:centerDark">@color/white</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowAnimationStyle">@android:style/Animation.Translucent</item>
+    </style>
+
+</resources>

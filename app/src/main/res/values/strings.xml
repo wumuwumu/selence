@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">善月</string>
+    <string name="menu_home">善月</string>
+    <string name="menu_setting">信息</string>
+    <string name="menu_setting_menstruation_tip1">您月经大概持续几天？</string>
+    <string name="menu_setting_menstruation_tip2">两次月经开始日大概间隔多久？</string>
+    <string name="menu_setting_menstruation_tip3">最近一次月经开始日期是哪天？</string>
+    <string name="menu_setting_menstruation_days">经期长度</string>
+    <string name="menu_setting_menstruation_period">周期长度</string>
+    <string name="menu_setting_menstruation_preday">最近一次日期</string>
+    <string name="menu_calendar">健康</string>
+    <string name="cancle">取消</string>
+    <string name="menu_setting_menstruation">请选择信息</string>
+    <string name="sure">确定</string>
+    <string name="tel_tips">请输入联系</string>
+
+</resources>

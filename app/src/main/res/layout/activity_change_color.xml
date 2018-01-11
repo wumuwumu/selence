@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context="com.appscomm.selence.ChangeColorActivity">
+
+    <include
+        android:id="@+id/layout_title"
+        layout="@layout/layout_title" />
+
+
+    <RelativeLayout
+        android:id="@+id/rl_choose_device"
+        android:layout_width="250dp"
+        android:layout_height="450dp"
+        android:layout_centerHorizontal="true"
+        android:layout_centerInParent="true"
+        android:layout_centerVertical="true"
+        android:background="@mipmap/choose1">
+
+    </RelativeLayout>
+
+
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="120dp"
+        android:layout_alignParentBottom="true"
+        android:orientation="horizontal">
+
+        <RelativeLayout
+            android:id="@+id/rl_choose1"
+            android:layout_width="0dp"
+            android:layout_height="100dp"
+            android:layout_gravity="center_vertical"
+            android:layout_margin="10dp"
+            android:layout_weight="1"
+            android:background="@color/device_bg_color1">
+
+            <ImageView
+                android:id="@+id/iv_choose1"
+                android:visibility="invisible"
+                android:layout_width="25dp"
+                android:layout_height="25dp"
+                android:layout_alignParentRight="true"
+                android:layout_alignParentTop="true"
+                android:src="@mipmap/choose" />
+        </RelativeLayout>
+
+        <RelativeLayout
+            android:id="@+id/rl_choose2"
+            android:layout_width="0dp"
+            android:layout_height="100dp"
+            android:layout_gravity="center_vertical"
+            android:layout_weight="1"
+            android:background="@color/device_bg_color2">
+
+            <ImageView
+                android:id="@+id/iv_choose2"
+                android:visibility="invisible"
+                android:layout_width="25dp"
+                android:layout_height="25dp"
+                android:layout_alignParentRight="true"
+                android:layout_alignParentTop="true"
+                android:src="@mipmap/choose" />
+
+
+        </RelativeLayout>
+
+        <RelativeLayout
+            android:id="@+id/rl_choose3"
+            android:layout_width="0dp"
+            android:layout_height="100dp"
+            android:layout_margin="10dp"
+            android:layout_weight="1"
+            android:layout_gravity="center_vertical"
+            android:background="@color/device_bg_color3">
+
+            <ImageView
+                android:id="@+id/iv_choose3"
+                android:visibility="invisible"
+                android:layout_width="25dp"
+                android:layout_height="25dp"
+                android:layout_alignParentRight="true"
+                android:layout_alignParentTop="true"
+                android:src="@mipmap/choose" />
+        </RelativeLayout>
+
+
+    </LinearLayout>
+
+</RelativeLayout>
