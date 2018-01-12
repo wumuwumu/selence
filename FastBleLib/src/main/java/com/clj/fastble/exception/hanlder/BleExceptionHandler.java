@@ -1,20 +1,31 @@
 package com.clj.fastble.exception.hanlder;
 
-import com.clj.fastble.exception.*;
+import com.clj.fastble.exception.BleException;
+import com.clj.fastble.exception.ConnectException;
+import com.clj.fastble.exception.GattException;
+import com.clj.fastble.exception.NotFoundDeviceException;
+import com.clj.fastble.exception.OtherException;
+import com.clj.fastble.exception.TimeoutException;
 
 
 public abstract class BleExceptionHandler {
 
     public BleExceptionHandler handleException(BleException exception) {
+
         if (exception != null) {
+
             if (exception instanceof ConnectException) {
                 onConnectException((ConnectException) exception);
+
             } else if (exception instanceof GattException) {
                 onGattException((GattException) exception);
+
             } else if (exception instanceof TimeoutException) {
                 onTimeoutException((TimeoutException) exception);
-            } else if (exception instanceof InitiatedException) {
-                onInitiatedException((InitiatedException) exception);
+
+            } else if (exception instanceof NotFoundDeviceException) {
+                onNotFoundDeviceException((NotFoundDeviceException) exception);
+
             } else {
                 onOtherException((OtherException) exception);
             }
@@ -38,9 +49,9 @@ public abstract class BleExceptionHandler {
     protected abstract void onTimeoutException(TimeoutException e);
 
     /**
-     * operation inititiated error
+     * not found device error
      */
-    protected abstract void onInitiatedException(InitiatedException e);
+    protected abstract void onNotFoundDeviceException(NotFoundDeviceException e);
 
     /**
      * other exceptions

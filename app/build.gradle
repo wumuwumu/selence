@@ -34,8 +34,8 @@ dependencies {
     })
     compile project(':calendar')
     compile project(':FastBleLib')
-//    compile 'com.clj.fastble:FastBleLib:1.2.1'
-    compile 'com.android.support:appcompat-v7:25.+'
+//    compile 'com.clj.fastble:FastBleLib:2.2.2'
+//    compile 'com.android.support:appcompat-v7:25.+'
     compile 'com.android.support.constraint:constraint-layout:1.0.2'
     compile 'com.jakewharton:butterknife:8.8.1'
     compile 'com.android.support:support-v4:25.0.0-alpha1'

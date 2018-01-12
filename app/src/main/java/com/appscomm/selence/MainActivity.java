@@ -44,7 +44,6 @@ public class MainActivity extends FragmentActivity {
     private ToggleButton tgbSetting;
     private ToggleButton tgbCalendar;
 
-    public static BleManager bleManager;
     private BluetoothAdapter mBluetoothAdapter;
 
     @Override
@@ -72,16 +71,18 @@ public class MainActivity extends FragmentActivity {
         mBluetoothAdapter = bluetoothManager.getAdapter();
 
         if (mBluetoothAdapter == null) {
-            Toast.makeText(this,"蓝牙不支持", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "蓝牙不支持", Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
-        bleManager = new BleManager(this);
-        bleManager.enableBluetooth();
+        BleManager.getInstance().init(getApplication());
+        BleManager.getInstance()
+                .enableLog(true)
+                .setMaxConnectCount(7)
+                .setOperateTimeout(5000);
     }
 
     private void initLisener() {
-
         tgbIndex.setOnClickListener(mOnClickListener);
         tgbSetting.setOnClickListener(mOnClickListener);
         tgbCalendar.setOnClickListener(mOnClickListener);
@@ -212,24 +213,25 @@ public class MainActivity extends FragmentActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        bleManager.enableBluetooth();
+        BleManager.getInstance().enableBluetooth();
     }
 
     @Override
     protected void onDestroy() {
-//        bleManager.closeBluetoothGatt();
+        BleManager.getInstance().disconnectAllDevice();
+        BleManager.getInstance().destroy();
         super.onDestroy();
-//        bleManager = null;
+
     }
 
-    @Override
-    public boolean onKeyDown(int keyCode, KeyEvent event) {
-        if (keyCode == KeyEvent.KEYCODE_BACK) {
-            moveTaskToBack(false);
-            return true;
-        }
-        return super.onKeyDown(keyCode, event);
-    }
+//    @Override
+//    public boolean onKeyDown(int keyCode, KeyEvent event) {
+//        if (keyCode == KeyEvent.KEYCODE_BACK) {
+//            moveTaskToBack(false);
+//            return true;
+//        }
+//        return super.onKeyDown(keyCode, event);
+//    }
 
     private static final int REQUEST_FINE_LOCATION = 0;
 

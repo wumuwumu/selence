@@ -2,9 +2,6 @@ package com.appscomm.selence.bean;
 
 import com.google.gson.annotations.SerializedName;
 
-/**
- * Created by Administrator on 2017/10/24.
- */
 
 public class BleReslutDate {
 

@@ -2,9 +2,6 @@ package com.appscomm.selence.bean;
 
 import com.google.gson.annotations.SerializedName;
 
-/**
- * Created by Administrator on 2017/10/18.
- */
 
 public class BleDate {
 
@@ -13,7 +10,6 @@ public class BleDate {
      * key : 1
      * gear : 0
      */
-
     @SerializedName("switch")
     private String switchX;
     private String key;

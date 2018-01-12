@@ -1,11 +1,11 @@
 package com.appscomm.selence.fragment;
 
+import android.animation.Animator;
+import android.animation.ValueAnimator;
 import android.app.Dialog;
 import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
-import android.bluetooth.BluetoothGattService;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
@@ -26,28 +26,31 @@ import com.appscomm.selence.R;
 import com.appscomm.selence.SettingActivity;
 import com.appscomm.selence.bean.BleDate;
 import com.appscomm.selence.bean.BleReslutDate;
-import com.appscomm.selence.service.BluetoothService;
-import com.clj.fastble.conn.BleCharacterCallback;
-import com.clj.fastble.conn.BleConnector;
-import com.clj.fastble.conn.BleGattCallback;
+import com.clj.fastble.BleManager;
+import com.clj.fastble.callback.BleGattCallback;
+import com.clj.fastble.callback.BleNotifyCallback;
+import com.clj.fastble.callback.BleScanAndConnectCallback;
+import com.clj.fastble.callback.BleScanCallback;
+import com.clj.fastble.callback.BleWriteCallback;
+import com.clj.fastble.data.BleDevice;
 import com.clj.fastble.exception.BleException;
+import com.clj.fastble.scan.BleScanRuleConfig;
 import com.google.gson.Gson;
 import com.necer.ncalendar.utils.SPUtils;
 
+import java.util.List;
 import java.util.UUID;
-
-import static com.appscomm.selence.MainActivity.bleManager;
 
 /**
  * A simple {@link Fragment} subclass.
  */
 public class ConsoleFragment extends Fragment {
-    private static final String TAG = BleConnector.class.getSimpleName();
+    private static final String TAG = ConsoleFragment.class.getSimpleName();
     private TextView title;
     private ImageView switchX;
     private BleDate mBleDate;
     private Dialog loadingDialog;
-    private String bleName = "ST_BLE";
+    private String bleName = "BLE";
 
     private RelativeLayout unconnect;
     private RelativeLayout connect;
@@ -57,8 +60,8 @@ public class ConsoleFragment extends Fragment {
     private static final String UUID_NOTIFY = "0000fff4-0000-1000-8000-00805f9b34fb";
     private static final String UUID_WRITE = "0000fff1-0000-1000-8000-00805f9b34fb";
 
-    private static final  int MSG_DATA =166;
-    private static final int MSG_SEND=200;
+    private static final int MSG_DATA = 166;
+    private static final int MSG_SEND = 200;
     private static final int MSG_UNLOCK = 222;
     private int nowIndex;
     private byte[] notifyContent = new byte[1024];
@@ -75,8 +78,10 @@ public class ConsoleFragment extends Fragment {
     private RelativeLayout deviceBg;
     private boolean isConnect = false;
     private BluetoothAdapter mBluetoothAdapter;
+    private BleDevice bleSaveDevice;
 
     private boolean LOCKED = false;
+    private ValueAnimator valueAnimator;
 
     int color = 0;
 
@@ -119,12 +124,31 @@ public class ConsoleFragment extends Fragment {
         bleReslutDate.setCharge("");
         bleReslutDate.setPower("");
         bleReslutDate.setSwitchx("0");
-//        String reslut = SPUtils.getInstance().getString("recoverContent", "0");
-//        if (reslut != "0") {
-//            bleReslutDate = new Gson().fromJson(reslut, BleReslutDate.class);
-//            mBleDate.setGear(bleReslutDate.getGear());
-//        }
-         color = SPUtils.getInstance().getInt("devicecolor");
+        valueAnimator = ValueAnimator.ofInt(1, 100);
+        valueAnimator.addListener(new Animator.AnimatorListener() {
+            @Override
+            public void onAnimationStart(Animator animation) {
+
+            }
+
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                LOCKED = false;
+            }
+
+            @Override
+            public void onAnimationCancel(Animator animation) {
+
+            }
+
+            @Override
+            public void onAnimationRepeat(Animator animation) {
+
+            }
+        });
+        valueAnimator.setDuration(2000);
+        valueAnimator.start();
+        color = SPUtils.getInstance().getInt("devicecolor");
         if (color != -1) {
             if (color == 1) {
                 pauseDevice.setImageResource(R.mipmap.pause1);
@@ -144,7 +168,7 @@ public class ConsoleFragment extends Fragment {
         public void onClick(View view) {
             switch (view.getId()) {
                 case R.id.iv_shutdown:
-                    if(LOCKED){
+                    if (LOCKED || !isConnect) {
                         return;
                     }
                     mBleDate.setSwitchX("0");
@@ -154,10 +178,11 @@ public class ConsoleFragment extends Fragment {
                     writeToDevice(date);
                     break;
                 case R.id.rl_unconnect:
-                    connectNameDevice(bleName);
+                    connectNameDevice2(bleName);
+//                    scan();
                     break;
                 case R.id.iv_add:
-                    if(LOCKED){
+                    if (LOCKED || !isConnect) {
                         return;
                     }
                     mBleDate.setSwitchX("1");
@@ -171,7 +196,7 @@ public class ConsoleFragment extends Fragment {
                     writeToDevice(addDate);
                     break;
                 case R.id.iv_minus:
-                    if(LOCKED){
+                    if (LOCKED || !isConnect) {
                         return;
                     }
                     mBleDate.setSwitchX("1");
@@ -185,7 +210,7 @@ public class ConsoleFragment extends Fragment {
                     writeToDevice(minusDate);
                     break;
                 case R.id.iv_pause:
-                    if(LOCKED){
+                    if (LOCKED || !isConnect) {
                         return;
                     }
                     if (isPlay) {
@@ -211,49 +236,20 @@ public class ConsoleFragment extends Fragment {
 
 
     };
-    private void writeToDevice( String date) {
-            LOCKED = true;
-                if (date.length() > 20) {
-                    Message message = new Message();
-                    message.what = MSG_SEND;
-                    message.obj = date.substring(0,20);
-                    handler.sendMessage(message);
-                    date = date.substring(20);
-                }
-                Message message = new Message();
-                message.what = MSG_SEND;
-                message.obj = date;
-                handler.sendMessageDelayed(message,300);
-//                boolean suc = bleManager.writeDevice2(
-//                        UUID_SERVICE,
-//                        UUID_WRITE,
-//                        subData,
-//                        new BleCharacterCallback() {
-//                            @Override
-//                            public void onFailure(BleException exception) {
-//
-//                            }
-//
-//                            @Override
-//                            public void onSuccess(final BluetoothGattCharacteristic characteristic) {
 
-
-//                        new Handler().postDelayed(new Runnable() {
-//                            @Override
-//                            public void run() {
-//                                dimissDialog();
-//                            }
-//                        }, 500);
-
-//                            }
-//
-//
-//                        });
-//                if (suc) {
-//                    bleManager.stopListenCharacterCallback(UUID_NOTIFY);
-//                    startNotify(UUID_SERVICE, UUID_NOTIFY);
-//                }
-
+    private void writeToDevice(String date) {
+        LOCKED = true;
+        if (date.length() > 20) {
+            Message message = new Message();
+            message.what = MSG_SEND;
+            message.obj = date.substring(0, 20);
+            handler.sendMessage(message);
+            date = date.substring(20);
+        }
+        Message message = new Message();
+        message.what = MSG_SEND;
+        message.obj = date;
+        handler.sendMessageDelayed(message, 250);
 
     }
 
@@ -261,19 +257,20 @@ public class ConsoleFragment extends Fragment {
     public void onResume() {
         super.onResume();
         setDeviceBgColor();
-        if(!bleManager.isConnected()){
-            connectNameDevice(bleName);
+        if (!isConnect && BleManager.getInstance().isBlueEnable()) {
+            scan();
         }
+//            connectNameDevice2(bleName);
     }
 
 
-    Handler handler = new Handler(){
+    Handler handler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
-            switch (msg.what){
+            switch (msg.what) {
                 case MSG_DATA:
                     String recoverContent = msg.obj.toString();
-                    Log.d(TAG, "run2:"+recoverContent);
+                    Log.d(TAG, "run2:" + recoverContent);
                     if (recoverContent.length() > 20) {
                         try {
                             bleReslutDate = new Gson().fromJson(recoverContent, BleReslutDate.class);
@@ -287,7 +284,10 @@ public class ConsoleFragment extends Fragment {
 //                                    }
 //                                }
 //                            }
-                            if(bleReslutDate.getPower() != null && bleReslutDate.getPower() != "" ){
+                            if (recoverContent.contains("power")) {
+                                writeToDevice(recoverContent);
+                            }
+                            if (bleReslutDate.getPower() != null && bleReslutDate.getPower() != "") {
                                 setBatteryIcon(Integer.parseInt(bleReslutDate.getPower()));
                                 if (Integer.parseInt(bleReslutDate.getCharge()) == 1) {
                                     battery.setImageResource(R.mipmap.battery6);
@@ -295,7 +295,7 @@ public class ConsoleFragment extends Fragment {
                                 mBleDate.setGear(bleReslutDate.getGear());
                                 setGearIcon(Integer.parseInt(bleReslutDate.getGear()));
                             }
-                            if(bleReslutDate.getSwitchx() != null && bleReslutDate.getSwitchx() != ""){
+                            if (bleReslutDate.getSwitchx() != null && bleReslutDate.getSwitchx() != "") {
                                 if (Integer.parseInt(mBleDate.getKey()) == 1) {
                                     isPlay = true;
                                     if (color != -1) {
@@ -309,7 +309,7 @@ public class ConsoleFragment extends Fragment {
                                     } else {
                                         pauseDevice.setImageResource(R.mipmap.pause1);
                                     }
-                                }else {
+                                } else {
                                     isPlay = false;
                                     if (color != -1) {
                                         if (color == 1) {
@@ -326,10 +326,6 @@ public class ConsoleFragment extends Fragment {
                                 mBleDate.setGear(mBleDate.getGear());
                                 setGearIcon(Integer.parseInt(bleReslutDate.getGear()));
                             }
-
-                            if (recoverContent.contains("power")) {
-                                writeToDevice(recoverContent);
-                            }
                         } catch (Exception e) {
 
                         }
@@ -338,36 +334,40 @@ public class ConsoleFragment extends Fragment {
                     }
                     break;
                 case MSG_SEND:
-                     String data = msg.obj.toString();
-                    Log.d(TAG, "run1: "+ data);
-                    boolean suc = bleManager.writeDevice2(
+                    String data = msg.obj.toString();
+                    Log.d(TAG, "run1: " + data);
+                    BleManager.getInstance().write(
+                            bleSaveDevice,
                             UUID_SERVICE,
                             UUID_WRITE,
-                            data,
-                            new BleCharacterCallback() {
+                            data.getBytes(),
+                            false,
+                            new BleWriteCallback() {
                                 @Override
-                                public void onFailure(BleException exception) {
-
+                                public void onWriteSuccess() {
+                                    // 发送数据到设备成功
+                                    Log.d(TAG, "onWriteSuccess: ");
                                 }
 
                                 @Override
-                                public void onSuccess(final BluetoothGattCharacteristic characteristic) {
+                                public void onWriteFailure(BleException exception) {
+                                    // 发送数据到设备失败
+                                    Log.d(TAG, "onWriteFailure: " + exception.getDescription());
                                 }
-
-
                             });
-                if (suc) {
-                    bleManager.stopListenCharacterCallback(UUID_NOTIFY);
-                    startNotify(UUID_SERVICE, UUID_NOTIFY);
-                }
-                    if(data.length() != 20){
-                       Message message = new Message();
+                    if (data.length() != 20) {
+                        Message message = new Message();
                         message.what = MSG_UNLOCK;
-                        handler.sendMessageDelayed(message,120);
+                        handler.sendMessageDelayed(message, 150);
+                    }
+                    if (!valueAnimator.isRunning()) {
+                        valueAnimator.start();
                     }
                     break;
                 case MSG_UNLOCK:
                     LOCKED = false;
+                    valueAnimator.end();
+                    valueAnimator.start();
                     break;
             }
             super.handleMessage(msg);
@@ -405,397 +405,229 @@ public class ConsoleFragment extends Fragment {
         }
     }
 
-//    private void checkPermissions() {
-//        String[] permissions = {Manifest.permission.ACCESS_FINE_LOCATION};
-//        List<String> permissionDeniedList = new ArrayList<>();
-//        for (String permission : permissions) {
-//            int permissionCheck = ContextCompat.checkSelfPermission(getActivity(), permission);
-//            if (permissionCheck == PackageManager.PERMISSION_GRANTED) {
-//                onPermissionGranted(permission);
-//            } else {
-//                permissionDeniedList.add(permission);
-//            }
-//        }
-//        if (!permissionDeniedList.isEmpty()) {
-//            String[] deniedPermissions = permissionDeniedList.toArray(new String[permissionDeniedList.size()]);
-//            ActivityCompat.requestPermissions(getActivity(), deniedPermissions, 12);
-//        }
-//    }
-
-
-
-
-
-    public void connectNameDevice(String name){
+    public void scan() {
         showDialog();
-        bleManager.scanNameAndConnect(name, 10000, false, new BleGattCallback(){
-
+        BleScanRuleConfig scanRuleConfig = new BleScanRuleConfig.Builder()
+//                .setDeviceName(true, bleName)   // 只扫描指定广播名的设备，可选
+//                .setAutoConnect(false)      // 连接时的autoConnect参数，可选，默认false
+                .setServiceUuids(new UUID[]{UUID.fromString(UUID_SERVICE)})
+                .setScanTimeOut(30000)// 扫描超时时间，可选，默认10秒
+                .build();
+        handler.postDelayed(new Runnable() {
             @Override
-            public void onServicesDiscovered(final BluetoothGatt gatt, int status) {
-                getActivity().runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        dimissDialog();
-                        initConnect(bleName, gatt);
-                        unconnect.setVisibility(View.GONE);
-                        connect.setVisibility(View.VISIBLE);
-                        isConnect = true;
-
-                    }
-                });
+            public void run() {
+                BleManager.getInstance().cancelScan();
+                dimissDialog();
             }
-
-
+        }, 20000);
+        BleManager.getInstance().initScanRule(scanRuleConfig);
+        BleManager.getInstance().scan(new BleScanCallback() {
             @Override
-            public void onNotFoundDevice() {
-                getActivity().runOnUiThread(new Runnable() {
-
-                    @Override
-                    public void run() {
-                        dimissDialog();
-                        Toast.makeText(getActivity(), "没有发现设备", Toast.LENGTH_LONG).show();
-                    }
-                });
-            }
-
-
-
-
-            @Override
-            public void onFoundDevice(BluetoothDevice device) {
-                getActivity().runOnUiThread(new Runnable() {
-
-                    @Override
-                    public void run() {
-                        Toast.makeText(getActivity(), "发现设备", Toast.LENGTH_LONG).show();
-                    }
-                });
+            public void onScanStarted(boolean success) {
+                // 开始扫描（主线程）
+//                Toast.makeText(getActivity(),"扫描开始",Toast.LENGTH_SHORT).show();
             }
 
             @Override
-            public void onConnectSuccess(BluetoothGatt gatt, int status) {
-                gatt.discoverServices();
+            public void onScanning(BleDevice bleDevice) {
+                // 扫描到一个符合扫描规则的BLE设备（主线程）
+                Toast.makeText(getActivity(), bleDevice.getName(), Toast.LENGTH_SHORT).show();
+                if (bleDevice.getName() != null) {
+                    if (bleDevice.getName().contains(bleName)) {
+                        BleManager.getInstance().cancelScan();
+//                    dimissDialog();
+                        connect(bleDevice);
+                    }
+                }
 
             }
 
             @Override
-            public void onConnectFailure(BleException exception) {
-                getActivity().runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        dimissDialog();
-                        Toast.makeText(getActivity(), "连接失败", Toast.LENGTH_SHORT).show();
-                            gearDevice.setImageResource(R.mipmap.gear_zero);
-                            connect.setVisibility(View.GONE);
-                            unconnect.setVisibility(View.VISIBLE);
-                        isConnect = false;
-                    }
-                });
+            public void onScanFinished(List<BleDevice> scanResultList) {
+                // 扫描结束，列出所有扫描到的符合扫描规则的BLE设备（主线程）
+            }
+        });
+    }
+
+    public void connect(BleDevice bleDevice) {
+        showDialog();
+        BleManager.getInstance().connect(bleDevice, new BleGattCallback() {
+            @Override
+            public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+                super.onServicesDiscovered(gatt, status);
+                dimissDialog();
+                Toast.makeText(getActivity(), "服务发现", Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onStartConnect() {
+                // 开始连接
+                Toast.makeText(getActivity(), "开始连接", Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onConnectFail(BleException exception) {
+                // 连接失败
+                dimissDialog();
+                Toast.makeText(getActivity(), "连接失败", Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onConnectSuccess(BleDevice bleDevice, BluetoothGatt gatt, int status) {
+                // 连接成功，BleDevice即为所连接的BLE设备
+//                Toast.makeText(getActivity(), "连接成功", Toast.LENGTH_SHORT).show();
+                dimissDialog();
+                initConnect(bleDevice, gatt);
+                unconnect.setVisibility(View.GONE);
+                connect.setVisibility(View.VISIBLE);
+                bleSaveDevice = bleDevice;
+                isConnect = true;
+            }
+
+            @Override
+            public void onDisConnected(boolean isActiveDisConnected, BleDevice bleDevice, BluetoothGatt gatt, int status) {
+                // 连接中断，isActiveDisConnected表示是否是主动调用了断开连接方法
+                dimissDialog();
+                Toast.makeText(getActivity(), "连接断开", Toast.LENGTH_SHORT).show();
+
+//                        Toast.makeText(getActivity(), "连接失败", Toast.LENGTH_SHORT).show();
+                gearDevice.setImageResource(R.mipmap.gear_zero);
+                connect.setVisibility(View.GONE);
+                unconnect.setVisibility(View.VISIBLE);
+                isConnect = false;
+            }
+        });
+    }
+
+    public void connectNameDevice2(String name) {
+        showDialog();
+        BleScanRuleConfig scanRuleConfig = new BleScanRuleConfig.Builder()
+                .setDeviceName(true, bleName)   // 只扫描指定广播名的设备，可选
+                .setAutoConnect(false)      // 连接时的autoConnect参数，可选，默认false
+                .setScanTimeOut(10000)// 扫描超时时间，可选，默认10秒
+                .setServiceUuids(new UUID[]{UUID.fromString(UUID_SERVICE)})
+                .build();
+        BleManager.getInstance().initScanRule(scanRuleConfig);
+        BleManager.getInstance().scanAndConnect(new BleScanAndConnectCallback() {
+            @Override
+            public void onScanStarted(boolean success) {
+                Toast.makeText(getActivity(), "扫描开始", Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onScanFinished(BleDevice scanResult) {
+                Toast.makeText(getActivity(), "扫描结束", Toast.LENGTH_SHORT).show();
+
+            }
+
+            @Override
+            public void onScanning(BleDevice bleDevice) {
+                super.onScanning(bleDevice);
+            }
+
+            @Override
+            public void onLeScan(BleDevice bleDevice) {
+                super.onLeScan(bleDevice);
+            }
+
+            @Override
+            public void onStartConnect() {
+                Toast.makeText(getActivity(), "开始连接", Toast.LENGTH_SHORT).show();
+
+            }
+
+            @Override
+            public void onConnectFail(BleException exception) {
+                dimissDialog();
+                Toast.makeText(getActivity(), "连接失败", Toast.LENGTH_SHORT).show();
+
+
+            }
+
+            @Override
+            public void onConnectSuccess(BleDevice bleDevice, BluetoothGatt gatt, int status) {
+                Toast.makeText(getActivity(), "连接成功", Toast.LENGTH_SHORT).show();
+                dimissDialog();
+                initConnect(bleDevice, gatt);
+                unconnect.setVisibility(View.GONE);
+                connect.setVisibility(View.VISIBLE);
+                isConnect = true;
+
+            }
+
+            @Override
+            public void onDisConnected(boolean isActiveDisConnected, BleDevice device, BluetoothGatt gatt, int status) {
+                dimissDialog();
+                Toast.makeText(getActivity(), "连接断开", Toast.LENGTH_SHORT).show();
+//                        Toast.makeText(getActivity(), "连接失败", Toast.LENGTH_SHORT).show();
+                gearDevice.setImageResource(R.mipmap.gear_zero);
+                connect.setVisibility(View.GONE);
+                unconnect.setVisibility(View.VISIBLE);
+                isConnect = false;
             }
         });
     }
 
 
-
-
-    private void initConnect(String deviceName, BluetoothGatt gatt) {
-        bleManager.getBluetoothState();
-        if (gatt != null) {
-            for (final BluetoothGattService service : gatt.getServices()) {
-                for (final BluetoothGattCharacteristic characteristic : service.getCharacteristics()) {
-                    if (characteristic.getUuid().equals(UUID.fromString(UUID_NOTIFY))) {
-                        startNotify(service.getUuid().toString(), characteristic.getUuid().toString());
-
-                    }
-                }
-            }
-//            BluetoothGattService service = mBluetoothService.getGatt().getService(UUID.fromString(UUID_SERVICE));
-//            BluetoothGattCharacteristic notifyCharacteristic = service.getCharacteristic(UUID.fromString(UUID_NOTIFY));
-//            if (notifyCharacteristic == null) {
-//                return;
-//            }
-//            startNotify(notifyCharacteristic.getService().getUuid().toString(),notifyCharacteristic.getUuid().toString());
-        }
-    }
-
-
-    private void startNotify(String serviceUUID, final String characterUUID) {
-        final boolean suc = bleManager.notify(
-                serviceUUID,
-                characterUUID,
-                new BleCharacterCallback() {
+    private void initConnect(BleDevice bleDevice, BluetoothGatt gatt) {
+        BleManager.getInstance().notify(
+                bleDevice,
+                UUID_SERVICE,
+                UUID_NOTIFY,
+                new BleNotifyCallback() {
                     @Override
-                    public void onSuccess(final BluetoothGattCharacteristic characteristic) {
-                        getActivity().runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                byte[] content = characteristic.getValue();
-                                Log.d(TAG, "run: "+ new String(content));
-                                if (content[content.length - 1] != 10) {
-                                    System.arraycopy(content, 0, notifyContent, nowIndex, content.length);
+                    public void onNotifySuccess() {
+                        // 打开通知操作成功
+                    }
 
-                                    nowIndex = content.length +nowIndex ;
-                                    Log.d(TAG, "runindex: "+ nowIndex);
-                                } else if (true) {
-                                    System.arraycopy(content, 0, notifyContent, nowIndex, content.length);
-                                    int nowIndex2 = nowIndex + content.length;
-                                    byte[] resultContent = new byte[nowIndex2];
-                                    System.arraycopy(notifyContent, 0, resultContent, 0, nowIndex2);
-                                    for (int i = 0; i < notifyContent.length; i++) {
-                                        notifyContent[i] = 0;
-                                    }
-                                    nowIndex2 = 0;
-                                    nowIndex = 0;
-//                                        String recoverContent = HexUtil.hexStringToString(String.valueOf(HexUtil.encodeHex(resultContent)));
-                                    String recoverContent =  new String(resultContent);
-                                    if(recoverContent.length() <32){
-                                        Log.d(TAG, "runerror: "+ recoverContent.length());
-                                        return;
-                                    }
-                                    Message message = new Message();
-                                    message.what= MSG_DATA;
-                                    message.obj = recoverContent;
-                                    handler.sendMessage(message);
+                    @Override
+                    public void onNotifyFailure(BleException exception) {
+                        // 打开通知操作失败
+                    }
 
-                                }
+                    @Override
+                    public void onCharacteristicChanged(byte[] data) {
+                        if (data == null || data.length == 0) {
+                            return;
+                        }
+                        // 打开通知后，设备发过来的数据将在这里出现
+                        Log.d(TAG, "onCharacteristicChanged: " + new String(data));
+                        byte[] content = data;
+                        Log.d(TAG, "run: " + new String(content));
+                        if (content[content.length - 1] != 10) {
+                            System.arraycopy(content, 0, notifyContent, nowIndex, content.length);
 
+                            nowIndex = content.length + nowIndex;
+                            Log.d(TAG, "runindex: " + nowIndex);
+                        } else if (true) {
+                            System.arraycopy(content, 0, notifyContent, nowIndex, content.length);
+                            int nowIndex2 = nowIndex + content.length;
+                            byte[] resultContent = new byte[nowIndex2];
+                            System.arraycopy(notifyContent, 0, resultContent, 0, nowIndex2);
+                            for (int i = 0; i < notifyContent.length; i++) {
+                                notifyContent[i] = 0;
                             }
-                        });
-
-                    }
-
-                    @Override
-                    public void onFailure(BleException exception) {
-
-                        bleManager.handleException(exception);
+                            nowIndex2 = 0;
+                            nowIndex = 0;
+//                                        String recoverContent = HexUtil.hexStringToString(String.valueOf(HexUtil.encodeHex(resultContent)));
+                            String recoverContent = new String(resultContent);
+                            if (recoverContent.length() < 32) {
+                                Log.d(TAG, "runerror: " + recoverContent.length());
+                                return;
+                            }
+                            Message message = new Message();
+                            message.what = MSG_DATA;
+                            message.obj = recoverContent;
+                            handler.sendMessage(message);
+                        }
                     }
                 });
-
-
     }
 
-
-
-
-
-
-
-//
-//
-//
-//    private BluetoothService.Callback callback = new BluetoothService.Callback() {
-//
-//        private BluetoothGattCharacteristic notifyCharacteristic;
-//
-//        @Override
-//        public void onStartScan() {
-//
-//        }
-//
-//        @Override
-//        public void onScanning(ScanResult scanResult) {
-//
-//        }
-//
-//
-//        @Override
-//        public void onScanComplete() {
-//            getActivity().runOnUiThread(new Runnable() {
-//
-//                @Override
-//                public void run() {
-//                    Toast.makeText(getActivity(), "没有发现设备", Toast.LENGTH_LONG).show();
-//                }
-//            });
-//        }
-//
-//        @Override
-//        public void onConnecting() {
-//
-//        }
-//
-//        @Override
-//        public void onConnectFail() {
-//            getActivity().runOnUiThread(new Runnable() {
-//                @Override
-//                public void run() {
-//                    dimissDialog();
-//                    Toast.makeText(getActivity(), "连接失败", Toast.LENGTH_SHORT).show();
-//                    if (mBluetoothService != null) {
-//                        gearDevice.setImageResource(R.mipmap.gear_zero);
-//                        connect.setVisibility(View.GONE);
-//                        unconnect.setVisibility(View.VISIBLE);
-////                unbindService();
-////                mBluetoothService = null;
-//                    }
-//                    isConnect = false;
-//                }
-//            });
-//
-//
-//        }
-//
-//        @Override
-//        public void onDisConnected() {
-//            getActivity().runOnUiThread(new Runnable() {
-//                @Override
-//                public void run() {
-//                    Toast.makeText(getActivity(), "连接断开", Toast.LENGTH_SHORT).show();
-//                    if (mBluetoothService != null) {
-//                        gearDevice.setImageResource(R.mipmap.gear_zero);
-//                        connect.setVisibility(View.GONE);
-//                        unconnect.setVisibility(View.VISIBLE);
-////                unbindService();
-////                mBluetoothService = null;
-//                    }
-//                }
-//            });
-//
-//        }
-//
-//        @Override
-//        public void onServicesDiscovered() {
-//            getActivity().runOnUiThread(new Runnable() {
-//                @Override
-//                public void run() {
-//                    dimissDialog();
-//                    unconnect.setVisibility(View.GONE);
-//                    connect.setVisibility(View.VISIBLE);
-//                    if (mBluetoothService == null) {
-//                        return;
-//                    }
-//                    BluetoothGattService service = mBluetoothService.getGatt().getService(UUID.fromString(UUID_SERVICE));
-//                    notifyCharacteristic = service.getCharacteristic(UUID.fromString(UUID_NOTIFY));
-//                    if (notifyCharacteristic == null) {
-//                        return;
-//                    }
-//                    isConnect = true;
-//                    mBluetoothService.notify(
-//                            notifyCharacteristic.getService().getUuid().toString(),
-//                            notifyCharacteristic.getUuid().toString(),
-//                            new BleCharacterCallback() {
-//
-//                                @Override
-//                                public void onFailure(BleException exception) {
-//
-//                                }
-//
-//                                @Override
-//                                public void onSuccess(final BluetoothGattCharacteristic characteristic) {
-//
-//                                    getActivity().runOnUiThread(new Runnable() {
-//                                        @Override
-//                                        public void run() {
-//                                            byte[] content = characteristic.getValue();
-//                                            if (content[content.length - 1] != 10) {
-//                                                System.arraycopy(content, 0, notifyContent, 0, content.length);
-//                                                nowIndex = content.length;
-//                                            } else if (nowIndex != 0) {
-//                                                System.arraycopy(content, 0, notifyContent, nowIndex, content.length);
-//                                                int nowIndex2 = nowIndex + content.length;
-//                                                byte[] resultContent = new byte[nowIndex2];
-//                                                System.arraycopy(notifyContent, 0, resultContent, 0, nowIndex2);
-//                                                for (int i = 0; i < notifyContent.length; i++) {
-//                                                    notifyContent[i] = 0;
-//                                                }
-//                                                nowIndex2 = 0;
-//                                                nowIndex = 0;
-////                                        String recoverContent = HexUtil.hexStringToString(String.valueOf(HexUtil.encodeHex(resultContent)));
-//                                                String recoverContent = HexUtil.encodeHexStr(resultContent);
-//                                                if (resultContent.length > 20) {
-//                                                    try {
-//                                                        bleReslutDate = new Gson().fromJson(recoverContent, BleReslutDate.class);
-//                                                        SPUtils.getInstance().put("recoverContent", recoverContent);
-//                                                        if (bleReslutDate.getGear() != null) {
-//                                                            int nowIndex = Integer.parseInt(bleReslutDate.getGear());
-//                                                            setGearIcon(nowIndex);
-//                                                            if (bleReslutDate.getPower() != null && bleReslutDate.getCharge() != null) {
-//                                                                setBatteryIcon(Integer.parseInt(bleReslutDate.getPower()));
-//                                                                if (Integer.parseInt(bleReslutDate.getCharge()) == 1) {
-//                                                                    battery.setImageResource(R.mipmap.battery6);
-//                                                                }
-//                                                            }
-//                                                        }
-//                                                        mBleDate = new Gson().fromJson(recoverContent, BleDate.class);
-//                                                        int color = SPUtils.getInstance().getInt("devicecolor");
-//                                                        if (mBleDate.getKey() != null && mBleDate.getSwitchX() != null) {
-//                                                            if (Integer.parseInt(mBleDate.getKey()) == 1) {
-//                                                                isPlay = true;
-//                                                                if (color != -1) {
-//                                                                    if (color == 1) {
-//                                                                        pauseDevice.setImageResource(R.mipmap.pause1);
-//                                                                    } else if (color == 2) {
-//                                                                        pauseDevice.setImageResource(R.mipmap.pause2);
-//                                                                    } else if (color == 3) {
-//                                                                        pauseDevice.setImageResource(R.mipmap.pause3);
-//                                                                    }
-//                                                                } else {
-//                                                                    pauseDevice.setImageResource(R.mipmap.pause1);
-//                                                                }
-//                                                            }
-//
-//                                                            if (Integer.parseInt(mBleDate.getKey()) == 0) {
-//                                                                isPlay = false;
-//                                                                if (color != -1) {
-//                                                                    if (color == 1) {
-//                                                                        pauseDevice.setImageResource(R.mipmap.play1);
-//                                                                    } else if (color == 2) {
-//                                                                        pauseDevice.setImageResource(R.mipmap.play2);
-//                                                                    } else if (color == 3) {
-//                                                                        pauseDevice.setImageResource(R.mipmap.play3);
-//                                                                    }
-//                                                                } else {
-//                                                                    pauseDevice.setImageResource(R.mipmap.play1);
-//                                                                }
-//                                                            }
-//                                                        }
-//                                                        if (recoverContent.contains("power")) {
-//                                                            writeToDevice(recoverContent);
-//                                                        }
-//                                                    } catch (Exception e) {
-//
-//                                                    }
-//                                                } else {
-//
-//                                                }
-//                                                BleLog.d(TAG, "设备返回1" + recoverContent);
-//                                            }
-//
-//                                        }
-//                                    });
-//                                }
-//
-//
-//                            });
-//                }
-//            });
-//
-//        }
-//    };
-
-//    @Override
-//    public final void onRequestPermissionsResult(int requestCode,
-//                                                 @NonNull String[] permissions,
-//                                                 @NonNull int[] grantResults) {
-//        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-//        switch (requestCode) {
-//            case 12:
-//                if (grantResults.length > 0) {
-//                    for (int i = 0; i < grantResults.length; i++) {
-//                        if (grantResults[i] == PackageManager.PERMISSION_GRANTED) {
-//                            onPermissionGranted(permissions[i]);
-//                        }
-//                    }
-//                }
-//                break;
-//        }
-//    }
 
     @Override
     public void onDestroy() {
         handler.removeCallbacksAndMessages(null);
-        bleManager.stopListenConnectCallback();
-        bleManager.closeBluetoothGatt();
         super.onDestroy();
         isConnect = false;
 
